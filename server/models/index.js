@@ -7,10 +7,11 @@ module.exports = {
       console.log('GET tweets called');
       var deferred = Q.defer();
       db.query('Select \
-        t.msg, \
-        t.time, \
+        t.msg AS message, \
+        t.time AS createdAt, \
         u.name AS username, \
-        r.name AS roomname \
+        r.name AS roomname, \
+        t.ID AS objectID \
         FROM \
         Tweets t JOIN Rooms r \
         ON t.roomID = r.ID JOIN Users u \
@@ -35,14 +36,12 @@ module.exports = {
         .then(function(id){
           if (id) {
             roomID = id;
-            console.log("changed room Id")
             return;
           } else {
             return module.exports.rooms.post(tweet.roomname).then(function(){
               return module.exports.rooms.get(tweet.roomname);
             }).then(function(id){
               roomID = id;
-              console.log("changed room Id")
             });
           }
         }).then(function(){
@@ -50,18 +49,14 @@ module.exports = {
         }).then(function(id){
           if (id) {
             userID = id;
-            console.log("changed user Id")
-
           } else {
             return module.exports.users.post(tweet.username, tweet.roomname).then(function(){
               return module.exports.users.get(tweet.username);
             }).then(function(id){
               userID = id;
-              console.log("changed user Id")
             });
           }
         }).then(function () {
-          console.log('about to query', roomID, userID);
           db.query('INSERT INTO Tweets (roomID, userID, msg) VALUES (\'' + roomID + '\', \'' + userID + '\', \'' + msg + '\');',
             function(err){
               if(err){
