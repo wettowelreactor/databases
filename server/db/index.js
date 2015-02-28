@@ -15,10 +15,14 @@ connection.connect();
 exports.db = connection;
 
 
-exports.db.query('Select * from rooms;', function(err, rows, fields) {
-  if (err) throw err;
+// exports.db.query('Select t.msg, t.time, u.name as username, r.name as roomname \
+//   from \
+//   Tweets t join Rooms r on t.roomID = r.ID \
+//   join Users u on t.userID = u.iD \
+//   ;', function(err, rows, fields) {
+//   if (err) throw err;
 
-  console.log('The solution is: ', rows);
-});
+//   console.log('full: ', err, rows);
+// });
 
 
