@@ -23,16 +23,21 @@ module.exports = {
     }, // a function which produces all the messages
     post: function (tweet) {
       var deferred = Q.defer();
-      var userID = this.users.get(tweet.username);
-      var roomID = this.users.get(tweet.roomname);
-      var msg = tweet.message;
-
-      db.query('INSERT INTO Tweets (roomID, userID, msg) VALUES (\'' + roomID + '\' \'' + userID + '\' \'' + msg + '\');',
-        function(err){
-          if(err){deffered.reject(err);}
-          else{deffered.resolve();}
-        }
+      var userID, roomID;
+      var msg = tweet.message || '';
+      var getIDs = Q.all([module.exports.users.get(tweet.username),
+        module.exports.rooms.get(tweet.roomname)]
       );
+      getIDs.then(function(results){
+        userID = results[0];
+        roomID = results[1];
+        db.query('INSERT INTO Tweets (roomID, userID, msg) VALUES (\'' + roomID + '\', \'' + userID + '\', \'' + msg + '\');',
+          function(err){
+            if(err){deferred.reject(err);}
+            else{deferred.resolve();}
+          }
+        );
+      });
       return deferred.promise;
     } // a function which can be used to insert a message into the database
   },
@@ -45,7 +50,11 @@ module.exports = {
         db.query('SELECT ID FROM users WHERE name=\''+name+'\';',
           function(err, rows){
             if (err) {deferred.reject(err);}
-            deferred.resolve(rows[0].ID);
+            if (rows.length === 0) {
+              // handle missing user, need ot figure out roomname; Change Q.all above to sync.
+            } else {
+              deferred.resolve(rows[0].ID);
+            }
           }
         );
       } else {
@@ -60,11 +69,14 @@ module.exports = {
     },
     post: function (username, roomname) {
       var deferred = Q.defer();
-      var roomID = this.rooms.get(roomname);
-      db.query('INSERT INTO Users (name, roomID) VALUES (\''+ username +'\', \''+ roomID +'\');',
-        function(err) {
-          if (err) {deferred.reject(err);}
-          else {deferred.resolve();}
+      module.export.rooms.get(roomname).then(
+        function(roomID){
+          db.query('INSERT INTO Users (name, roomID) VALUES (\''+ username +'\', \''+ roomID +'\');',
+            function(err) {
+              if (err) {deferred.reject(err);}
+              else {deferred.resolve();}
+            }
+          );
         }
       );
       return deferred.promise;
@@ -79,14 +91,17 @@ module.exports = {
         db.query('SELECT ID FROM rooms WHERE name=\''+name+'\';',
           function(err, rows){
             if (err) {deferred.reject(err);}
-            deferred.resolve(rows[0].ID);
+            if (rows.length === 0) {
+              //handle missing room
+            } else {
+              deferred.resolve(rows[0].ID);
+            }
           }
         );
       }else{
         db.query('SELECT name AS roomname, ID FROM rooms',
           function(err, rows){
             if (err) {deferred.reject(err);}
-            console.log('rooms', rows);
             deferred.resolve(rows);
           }
         );
@@ -108,6 +123,16 @@ module.exports = {
 
 //module.exports.rooms.get();
 //module.exports.users.get();
-module.exports.tweets.get().then(
-  function(tweets){console.log(tweets);
-});
+module.exports.tweets.post({
+  tweet : "This is a post msg",
+  username : 'bob',
+  roomname : 'lobby'
+}).then(
+  function(){
+    console.log('first Promise');
+    return module.exports.tweets.get();
+  }
+).then(
+  function(tweets){console.log(tweets);},
+  function(err){console.log(err);}
+);
